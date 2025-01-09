@@ -7,7 +7,6 @@ let package = Package(
        .macOS(.v13)
     ],
     dependencies: [
-        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.57.1"),
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.99.3"),
         // 🗄 An ORM for SQL and NoSQL databases.
@@ -29,9 +28,8 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "JWT", package: "jwt")
-            ], swiftSettings: swiftSettings, plugins: [
-                .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")
-            ]
+            ],
+            swiftSettings: swiftSettings
         ),
         .testTarget(
             name: "AppTests",
