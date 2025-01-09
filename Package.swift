@@ -7,6 +7,7 @@ let package = Package(
        .macOS(.v13)
     ],
     dependencies: [
+        .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins", from: "0.57.1"),
         // 💧 A server-side Swift web framework.
         .package(url: "https://github.com/vapor/vapor.git", from: "4.99.3"),
         // 🗄 An ORM for SQL and NoSQL databases.
@@ -15,6 +16,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+        // JWT - tockens
+        .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0")
     ],
     targets: [
         .executableTarget(
@@ -25,8 +28,10 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
-            ],
-            swiftSettings: swiftSettings
+                .product(name: "JWT", package: "jwt")
+            ], swiftSettings: swiftSettings, plugins: [
+                .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")
+            ]
         ),
         .testTarget(
             name: "AppTests",

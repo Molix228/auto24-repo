@@ -2,13 +2,11 @@ import Fluent
 import Vapor
 
 func routes(_ app: Application) throws {
-    app.get { req async in
-        "It works!"
+    app.get("check-directory") { _ -> String in
+        let currentDirectoryPath = FileManager.default.currentDirectoryPath
+        return "Current working directory: \(currentDirectoryPath)"
     }
-
-    app.get("hello") { req async -> String in
-        "Hello, world!"
-    }
-
-    try app.register(collection: TodoController())
+    try app.register(collection: ItemsController())
+    try app.register(collection: UsersController())
+    app.routes.defaultMaxBodySize = "5Mb"
 }
