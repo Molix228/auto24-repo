@@ -6,7 +6,7 @@ networks:
     driver: bridge
 
 x-shared_environment: &shared_environment
-  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  LOG_LEVEL: debug
   DATABASE_HOST: db
   DATABASE_NAME: auto24_database
   DATABASE_USERNAME: admin
