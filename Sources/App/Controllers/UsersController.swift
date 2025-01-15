@@ -53,6 +53,7 @@ struct UsersController: RouteCollection {
         let users = try await User.query(on: req.db).all()
         return users.map { $0.convertToPublic() }
     }
+
     // MARK: Get User by ID
     @Sendable func show(req: Request) async throws -> User.Public {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
