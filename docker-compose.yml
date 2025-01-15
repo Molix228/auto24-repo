@@ -33,7 +33,11 @@ services:
       - ./.env:/app/.env
       - ./Storage:/app/Storage
     environment:
-      <<: *shared_environment
+        LOG_LEVEL: debug
+        DATABASE_HOST: db
+        DATABASE_NAME: auto24_database
+        DATABASE_USERNAME: admin
+        DATABASE_PASSWORD: admin_password
     depends_on:
       - db
     networks:
@@ -52,7 +56,11 @@ services:
     build:
       context: .
     environment:
-      <<: *shared_environment
+        LOG_LEVEL: debug
+        DATABASE_HOST: db
+        DATABASE_NAME: auto24_database
+        DATABASE_USERNAME: admin
+        DATABASE_PASSWORD: admin_password
     depends_on:
       - db
     networks:
@@ -66,7 +74,11 @@ services:
     build:
       context: .
     environment:
-      <<: *shared_environment
+        LOG_LEVEL: debug
+        DATABASE_HOST: db
+        DATABASE_NAME: auto24_database
+        DATABASE_USERNAME: admin
+        DATABASE_PASSWORD: admin_password
     depends_on:
       - db
     networks:
