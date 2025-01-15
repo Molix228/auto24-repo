@@ -5,12 +5,12 @@ networks:
   app_network:
     driver: bridge
 
-#x-shared_environment: &shared_environment
-#  LOG_LEVEL: debug
-#  DATABASE_HOST: db
-#  DATABASE_NAME: auto24_database
-#  DATABASE_USERNAME: admin
-#  DATABASE_PASSWORD: admin_password
+x-shared_environment: &shared_environment
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  DATABASE_HOST: db
+  DATABASE_NAME: auto24_database
+  DATABASE_USERNAME: admin
+  DATABASE_PASSWORD: admin_password
 
 services:
   nginx:
@@ -33,11 +33,7 @@ services:
       - ./.env:/app/.env
       - ./Storage:/app/Storage
     environment:
-        LOG_LEVEL: debug
-        DATABASE_HOST: db
-        DATABASE_NAME: auto24_database
-        DATABASE_USERNAME: admin
-        DATABASE_PASSWORD: admin_password
+      <<: *shared_environment
     depends_on:
       - db
     networks:
@@ -56,11 +52,7 @@ services:
     build:
       context: .
     environment:
-        LOG_LEVEL: debug
-        DATABASE_HOST: db
-        DATABASE_NAME: auto24_database
-        DATABASE_USERNAME: admin
-        DATABASE_PASSWORD: admin_password
+      <<: *shared_environment
     depends_on:
       - db
     networks:
@@ -74,11 +66,7 @@ services:
     build:
       context: .
     environment:
-        LOG_LEVEL: debug
-        DATABASE_HOST: db
-        DATABASE_NAME: auto24_database
-        DATABASE_USERNAME: admin
-        DATABASE_PASSWORD: admin_password
+      <<: *shared_environment
     depends_on:
       - db
     networks:
