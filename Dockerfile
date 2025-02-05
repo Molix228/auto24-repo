@@ -3,46 +3,42 @@
 # ================================
 FROM swift:6.0-jammy AS build
 
-# Install OS updates
+# Устанавливаем обновления и нужные библиотеки
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
     && apt-get -q dist-upgrade -y \
-    && apt-get install -y libjemalloc-dev
+    && apt-get install -y libjemalloc-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set up a build area
+# Устанавливаем рабочую директорию
 WORKDIR /build
 
-# First just resolve dependencies.
-# This creates a cached layer that can be reused
-# as long as your Package.swift/Package.resolved
-# files do not change.
+# Копируем файлы для кэширования зависимостей
 COPY ./Package.* ./
 RUN swift package resolve \
         $([ -f ./Package.resolved ] && echo "--force-resolved-versions" || true)
 
-# Copy entire repo into container
+# Копируем исходный код
 COPY . .
 
-# Build everything, with optimizations, with static linking, and using jemalloc
-# N.B.: The static version of jemalloc is incompatible with the static Swift runtime.
+# Сборка с оптимизациями, статической линковкой и jemalloc
 RUN swift build -c release \
                 --static-swift-stdlib \
                 -Xlinker -ljemalloc
 
-# Switch to the staging area
+# Создаем папку для деплоя
 WORKDIR /staging
 
-# Copy main executable to staging area
+# Копируем скомпилированное приложение
 RUN cp "$(swift build --package-path /build -c release --show-bin-path)/App" ./
 
-# Copy static swift backtracer binary to staging area
+# Копируем Swift Backtrace (для логов ошибок)
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
 
-# Copy resources bundled by SPM to staging area
+# Копируем ресурсы из SPM
 RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \;
 
-# Copy any resources from the public directory and views directory if the directories exist
-# Ensure that by default, neither the directory nor any of its contents are writable.
+# Копируем публичные и дополнительные ресурсы
 RUN [ -d /build/Public ] && { mv /build/Public ./Public && chmod -R a-w ./Public; } || true
 RUN [ -d /build/Resources ] && { mv /build/Resources ./Resources && chmod -R a-w ./Resources; } || true
 
@@ -51,7 +47,7 @@ RUN [ -d /build/Resources ] && { mv /build/Resources ./Resources && chmod -R a-w
 # ================================
 FROM ubuntu:jammy
 
-# Make sure all system packages are up to date, and install only essential packages.
+# Устанавливаем только необходимые пакеты
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
     && apt-get -q dist-upgrade -y \
@@ -59,30 +55,26 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
       libjemalloc2 \
       ca-certificates \
       tzdata \
-# If your app or its dependencies import FoundationNetworking, also install `libcurl4`.
-      # libcurl4 \
-# If your app or its dependencies import FoundationXML, also install `libxml2`.
-      # libxml2 \
-    && rm -r /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Create a vapor user and group with /app as its home directory
+# Создаем пользователя "vapor" для безопасного запуска
 RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app vapor
 
-# Switch to the new home directory
+# Переходим в рабочую директорию
 WORKDIR /app
 
-# Copy built executable and any staged resources from builder
+# Копируем скомпилированное приложение и ресурсы
 COPY --from=build --chown=vapor:vapor /staging /app
 
-# Provide configuration needed by the built-in crash reporter and some sensible default behaviors.
+# Включаем Swift Backtrace для отладки крашей
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
 
-# Ensure all further commands run as the vapor user
+# Запускаем контейнер от имени пользователя "vapor"
 USER vapor:vapor
 
-# Let Docker bind to port 8080
+# Открываем порт 8080
 EXPOSE 8080
 
-# Start the Vapor service when the image is run, default to listening on 8080 in production environment
+# Запуск сервера в продакшене
 ENTRYPOINT ["./App"]
 CMD ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]

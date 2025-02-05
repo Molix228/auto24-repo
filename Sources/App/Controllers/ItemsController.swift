@@ -15,6 +15,7 @@ struct ItemsController: RouteCollection {
         let protected = items.grouped(basicMW, guardMW)
         protected.post(use: create)
     }
+
     @Sendable func create(req: Request) async throws -> Item {
         let formData = try req.content.decode(ItemFormData.self)
         let item = Item(
@@ -36,26 +37,29 @@ struct ItemsController: RouteCollection {
             description: formData.description
         )
         try await item.save(on: req.db)
-        // Теперь обрабатываем и сохраняем изображения
+        
         let itemID = try item.requireID().uuidString
         let storageFolder = req.application.directory.workingDirectory + "Storage/Items/\(itemID)"
-        let fileManager = FileManager.default
-        if !fileManager.fileExists(atPath: storageFolder) {
-            try fileManager.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: storageFolder) {
+            try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
-        for imageData in formData.images {
-            let fileName = "\(UUID()).jpg"
-            let fullPath = storageFolder + "/" + fileName
-            req.logger.debug("Saving file to \(fullPath)")
-            try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
-            let itemImage = ItemImage(
-                itemID: try item.requireID(),
-                path: fullPath
-            )
-            try await itemImage.save(on: req.db)
+        
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for imageData in formData.images {
+                group.addTask {
+                    let fileName = "\(UUID()).jpg"
+                    let fullPath = storageFolder + "/" + fileName
+                    try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
+                    let itemImage = ItemImage(itemID: try item.requireID(), path: fullPath)
+                    try await itemImage.save(on: req.db)
+                }
+            }
+            try await group.waitForAll()
         }
+        
         return item
     }
+
     @Sendable func index(req: Request) async throws -> [Item] {
         try await Item.query(on: req.db).with(\.$images).all()
     }

@@ -37,16 +37,24 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
     // MARK: Auth User
-    @Sendable func login(req: Request) async throws -> HTTPStatus {
+    @Sendable func login(req: Request) async throws -> TokenResponse {
         let loginData = try req.content.decode(LoginData.self)
-        guard let user = try await User.query(on: req.db).filter(\.$username == loginData.username).first(),
-                try Bcrypt.verify(loginData.password, created: user.password) else {
+
+        guard let user = try await User.query(on: req.db)
+            .filter(\.$username == loginData.username)
+            .first(),
+              try Bcrypt.verify(loginData.password, created: user.password) else {
             throw Abort(.unauthorized)
         }
 
-        // Сохранение идентификатора пользователя в сессии
+        // Создание токена
+        let payload = try Payload(user: user)
+        let token = try req.jwt.sign(payload)
+
+        // Сохранение в сессии
         req.session.data["userID"] = user.id?.uuidString
-        return .ok
+
+        return TokenResponse(token: token)
     }
     // MARK: Get all users
     @Sendable func index(req: Request) async throws -> [User.Public] {
@@ -94,6 +102,9 @@ struct UserFormData: Content {
     var profileImage: String?
 }
 
+struct TokenResponse: Content {
+    let token: String
+}
 // Структура для данных входа
 struct LoginData: Content {
     var username: String
@@ -103,16 +114,16 @@ struct LoginData: Content {
 struct Payload: JWTPayload {
     var userID: UUID
     var exp: ExpirationClaim
+    
     init(user: User) throws {
         self.userID = try user.requireID()
-        self.exp = .init(value: Date().addingTimeInterval(3600)) // MARK: Token - 1 hour
+        self.exp = .init(value: Date().addingTimeInterval(3600)) // Токен на 1 час
     }
 
     func verify(using signer: JWTSigner) throws {
         try self.exp.verifyNotExpired()
     }
 }
-
 struct UpdatedUserData: Content {
     var username: String?
     var email: String?
