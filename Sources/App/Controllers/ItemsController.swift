@@ -39,7 +39,7 @@ struct ItemsController: RouteCollection {
         try await item.save(on: req.db)
         
         let itemID = try item.requireID().uuidString
-        let storageFolder = "/home/omesliuk/auto24-repo/Storage/Items/\(itemID)"
+        let storageFolder = req.application.directory.workingDirectory + "/Storage/Items/\(itemID)"
         if !FileManager.default.fileExists(atPath: storageFolder) {
             try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
