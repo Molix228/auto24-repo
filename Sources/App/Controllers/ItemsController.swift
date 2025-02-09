@@ -40,6 +40,8 @@ struct ItemsController: RouteCollection {
         
         let itemID = try item.requireID().uuidString
         let storageFolder = req.application.directory.workingDirectory + "/Storage/Items/\(itemID)"
+        let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
+        
         if !FileManager.default.fileExists(atPath: storageFolder) {
             try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
@@ -50,7 +52,8 @@ struct ItemsController: RouteCollection {
                     let fileName = "\(UUID()).jpg"
                     let fullPath = storageFolder + "/" + fileName
                     try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
-                    let itemImage = ItemImage(itemID: try item.requireID(), path: fullPath)
+                    
+                    let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
                     try await itemImage.save(on: req.db)
                 }
             }
