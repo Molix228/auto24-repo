@@ -39,9 +39,9 @@ struct ItemsController: RouteCollection {
         try await item.save(on: req.db)
         
         let itemID = try item.requireID().uuidString
-        let storageFolder = req.application.directory.workingDirectory + "/Storage/Items/\(itemID)"
+        let storageFolder = "/app/Storage/Items/\(itemID)"
         let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
-        
+
         if !FileManager.default.fileExists(atPath: storageFolder) {
             try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
@@ -53,6 +53,7 @@ struct ItemsController: RouteCollection {
                     let fullPath = storageFolder + "/" + fileName
                     try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
                     
+                   
                     let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
                     try await itemImage.save(on: req.db)
                 }
@@ -66,6 +67,7 @@ struct ItemsController: RouteCollection {
     @Sendable func index(req: Request) async throws -> [Item] {
         try await Item.query(on: req.db).with(\.$images).all()
     }
+
     @Sendable func show(req: Request) async throws -> ItemResponse {
         guard let itemID = req.parameters.get("itemID", as: UUID.self) else {
             throw Abort(.badRequest, reason: "Invalid or missing itemID")
@@ -99,6 +101,7 @@ struct ItemsController: RouteCollection {
             transmission: item.transmission
         )
     }
+
     @Sendable func update(req: Request) async throws -> Item {
         guard let item = try await Item.find(req.parameters.get("itemID"), on: req.db) else {
             throw Abort(.notFound)
@@ -106,15 +109,22 @@ struct ItemsController: RouteCollection {
         let updateData = try req.content.decode(PartialUpdateData.self)
         if let imageData = updateData.image {
             let itemID = try item.requireID().uuidString
-            let storageFolder = req.application.directory.workingDirectory + "Storage/Items/\(itemID)"
-            let newImagePath = storageFolder + "/" + "\(UUID()).jpg"
+            let storageFolder = "/app/Storage/Items/\(itemID)"
+            let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
+            let fileName = "\(UUID()).jpg"
+            let newImagePath = storageFolder + "/" + fileName
+
             req.logger.debug("Updating file at \(newImagePath)")
             try await req.fileio.writeFile(.init(data: imageData), at: newImagePath)
+
+            let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
+            try await itemImage.save(on: req.db)
         }
         updateFields(item, with: updateData)
         try await item.save(on: req.db)
         return item
     }
+
     @Sendable func delete(req: Request) async throws -> HTTPStatus {
         guard let item = try await Item.find(req.parameters.get("itemID"), on: req.db) else {
             throw Abort(.notFound)
@@ -123,6 +133,7 @@ struct ItemsController: RouteCollection {
         try await item.delete(on: req.db)
         return .ok
     }
+
     private func updateFields(_ item: Item, with data: PartialUpdateData) {
         if let category = data.category { item.category = category }
         if let bodytype = data.bodytype { item.bodytype = bodytype }
