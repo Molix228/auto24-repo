@@ -138,21 +138,41 @@ struct ItemsController: RouteCollection {
             throw Abort(.notFound)
         }
 
-        let storageFolder = "/app/Storage/Items/\(try item.requireID())"
+        let itemID = try item.requireID().uuidString
+        let storageFolder = "/app/Storage/Items/\(itemID)"
 
+        // Получаем все изображения, чтобы удалить их с диска
         let images = try await item.$images.get(on: req.db)
-        
+
         for image in images {
-            let filePath = image.path.replacingOccurrences(of: "https://auto24-api.com", with: "/app")
-            if FileManager.default.fileExists(atPath: filePath) {
-                try FileManager.default.removeItem(atPath: filePath)
+            let filePath = image.path.replacingOccurrences(of: "https://auto24-api.com/Storage", with: "/app/Storage")
+            req.logger.info("Trying to delete file at: \(filePath)")
+            
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: filePath) {
+                do {
+                    try fileManager.removeItem(atPath: filePath)
+                    req.logger.info("Deleted file: \(filePath)")
+                } catch {
+                    req.logger.error("Failed to delete file \(filePath): \(error.localizedDescription)")
+                }
+            } else {
+                req.logger.warning("File does not exist: \(filePath)")
             }
         }
 
+        // Удаляем папку объявления, если она пустая
         if FileManager.default.fileExists(atPath: storageFolder) {
-            try FileManager.default.removeItem(atPath: storageFolder)
+            do {
+                try FileManager.default.removeItem(atPath: storageFolder)
+                req.logger.info("Deleted directory: \(storageFolder)")
+            } catch {
+                req.logger.error("Failed to delete directory \(storageFolder): \(error.localizedDescription)")
+            }
         }
 
+        // Удаляем данные из базы
+        try await item.$images.query(on: req.db).delete()
         try await item.delete(on: req.db)
 
         return .ok
