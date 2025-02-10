@@ -77,7 +77,7 @@ struct ItemsController: RouteCollection {
         }
         guard let item = try await Item.query(on: req.db)
             .with(\.$images)
-            .filter(\.$id == itemID)
+            .filter(\Item.$id == itemID)
             .first()
         else {
             throw Abort(.notFound)
