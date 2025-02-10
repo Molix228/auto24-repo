@@ -1,26 +1,28 @@
 x-shared_environment: &shared_environment
   LOG_LEVEL: ${LOG_LEVEL:-debug}
-  DATABASE_HOST: db
-  DATABASE_NAME: auto24_database
-  DATABASE_USERNAME: admin
-  DATABASE_PASSWORD: admin_password
+  DATABASE_HOST: ${DB_HOST:-db}
+  DATABASE_NAME: ${DB_NAME}
+  DATABASE_USERNAME: ${DB_USER}
+  DATABASE_PASSWORD: ${DB_PASSWORD}
 
 services:
   db:
     image: postgres:15
     volumes:
       - db_data:/var/lib/postgresql/data/pgdata
+    env_file:
+      - .env
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin_password
-      POSTGRES_DB: auto24_database
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d auto24_database -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h db"]
       interval: 5s
       timeout: 2s
       retries: 5
@@ -32,6 +34,8 @@ services:
     volumes:
       - ./.env:/app/.env
       - ./Storage:/app/Storage
+    env_file:
+      - .env
     environment:
       <<: *shared_environment
     depends_on:
@@ -56,8 +60,10 @@ services:
     networks:
       - app_network
     restart: always
+
 volumes:
   db_data:
+    driver: local
 
 networks:
   app_network:
