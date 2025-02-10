@@ -1,7 +1,7 @@
 # ================================
 # Build image
 # ================================
-FROM swift:6.0-jammy AS runtime
+FROM swift:6.0-jammy AS build
 
 # Устанавливаем обновления и нужные библиотеки
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
