@@ -25,8 +25,8 @@ public func configure(_ app: Application) throws {
         as: .psql
     )
     
-    app.migrations.add(CreateItem())
     app.migrations.add(CreateUser())
+    app.migrations.add(CreateItem())
     app.migrations.add(CreateItemImage())
     if app.environment == .development {
         try app.autoMigrate().wait()
