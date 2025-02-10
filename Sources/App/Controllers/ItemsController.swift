@@ -141,34 +141,22 @@ struct ItemsController: RouteCollection {
         let itemID = try item.requireID().uuidString
         let storageFolder = "/app/Storage/Items/\(itemID)"
 
-        // Получаем все изображения, чтобы удалить их с диска
-        let images = try await item.$images.get(on: req.db)
+        // Логируем путь к файлам
+        req.logger.info("Attempting to delete images for item ID: \(itemID)")
+        req.logger.info("Storage path: \(storageFolder)")
 
-        for image in images {
-            let filePath = image.path.replacingOccurrences(of: "https://auto24-api.com/Storage", with: "/app/Storage")
-            req.logger.info("Trying to delete file at: \(filePath)")
-            
-            let fileManager = FileManager.default
-            if fileManager.fileExists(atPath: filePath) {
-                do {
-                    try fileManager.removeItem(atPath: filePath)
-                    req.logger.info("Deleted file: \(filePath)")
-                } catch {
-                    req.logger.error("Failed to delete file \(filePath): \(error.localizedDescription)")
-                }
-            } else {
-                req.logger.warning("File does not exist: \(filePath)")
-            }
-        }
+        let fileManager = FileManager.default
 
-        // Удаляем папку объявления, если она пустая
-        if FileManager.default.fileExists(atPath: storageFolder) {
+        // Проверяем, существует ли папка
+        if fileManager.fileExists(atPath: storageFolder) {
             do {
-                try FileManager.default.removeItem(atPath: storageFolder)
+                try fileManager.removeItem(atPath: storageFolder)
                 req.logger.info("Deleted directory: \(storageFolder)")
             } catch {
                 req.logger.error("Failed to delete directory \(storageFolder): \(error.localizedDescription)")
             }
+        } else {
+            req.logger.warning("Directory does not exist: \(storageFolder)")
         }
 
         // Удаляем данные из базы
