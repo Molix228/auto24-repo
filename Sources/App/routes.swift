@@ -8,5 +8,4 @@ func routes(_ app: Application) throws {
     }
     try app.register(collection: ItemsController())
     try app.register(collection: UsersController())
-    app.routes.defaultMaxBodySize = "5Mb"
 }

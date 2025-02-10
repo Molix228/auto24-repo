@@ -10,15 +10,17 @@ struct ItemsController: RouteCollection {
             item.put(use: update)
             item.delete(use: delete)
         }
-        let basicMW = User.authenticator()
-        let guardMW = User.guardMiddleware()
-        let protected = items.grouped(basicMW, guardMW)
+        let protected = items.grouped(User.authenticator(), User.guardMiddleware())
         protected.post(use: create)
     }
 
     @Sendable func create(req: Request) async throws -> Item {
         let formData = try req.content.decode(ItemFormData.self)
+
+        let user = try req.auth.require(User.self)
+
         let item = Item(
+            userID: try user.requireID(),
             category: formData.category,
             bodytype: formData.bodytype,
             make: formData.make,
@@ -37,7 +39,7 @@ struct ItemsController: RouteCollection {
             description: formData.description
         )
         try await item.save(on: req.db)
-        
+            
         let itemID = try item.requireID().uuidString
         let storageFolder = "/app/Storage/Items/\(itemID)"
         let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
@@ -47,23 +49,28 @@ struct ItemsController: RouteCollection {
         }
 
         var imageIndex = 1
-        
+
         try await withThrowingTaskGroup(of: Void.self) { group in
             for imageData in formData.images {
                 let index = imageIndex
                 group.addTask {
-                    let fileName = "\(index).jpg"
-                    let fullPath = storageFolder + "/" + fileName
-                    try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
+                    do {
+                        let fileName = "\(index).jpg"
+                        let fullPath = storageFolder + "/" + fileName
+                        try imageData.write(to: URL(fileURLWithPath: fullPath))
 
-                    let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
-                    try await itemImage.save(on: req.db)
+                        let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
+                        try await itemImage.save(on: req.db)
+                    } catch {
+                        req.logger.error("Ошибка сохранения файла: \(error.localizedDescription)")
+                        throw error
+                    }
                 }
                 imageIndex += 1
             }
             try await group.waitForAll()
         }
-        
+            
         return item
     }
 
@@ -141,13 +148,14 @@ struct ItemsController: RouteCollection {
         let itemID = try item.requireID().uuidString
         let storageFolder = "/app/Storage/Items/\(itemID)"
 
-        // Логируем путь к файлам
         req.logger.info("Attempting to delete images for item ID: \(itemID)")
         req.logger.info("Storage path: \(storageFolder)")
 
         let fileManager = FileManager.default
+        
+        try await item.$images.query(on: req.db).delete()
+        try await item.delete(on: req.db)
 
-        // Проверяем, существует ли папка
         if fileManager.fileExists(atPath: storageFolder) {
             do {
                 try fileManager.removeItem(atPath: storageFolder)
@@ -158,10 +166,7 @@ struct ItemsController: RouteCollection {
         } else {
             req.logger.warning("Directory does not exist: \(storageFolder)")
         }
-
-        // Удаляем данные из базы
-        try await item.$images.query(on: req.db).delete()
-        try await item.delete(on: req.db)
+        
 
         return .ok
     }
