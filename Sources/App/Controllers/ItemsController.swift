@@ -45,18 +45,21 @@ struct ItemsController: RouteCollection {
         if !FileManager.default.fileExists(atPath: storageFolder) {
             try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
+
+        var imageIndex = 1
         
         try await withThrowingTaskGroup(of: Void.self) { group in
             for imageData in formData.images {
+                let index = imageIndex
                 group.addTask {
-                    let fileName = "\(UUID()).jpg"
+                    let fileName = "\(index).jpg"
                     let fullPath = storageFolder + "/" + fileName
                     try await req.fileio.writeFile(.init(data: imageData), at: fullPath)
-                    
-                   
+
                     let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
                     try await itemImage.save(on: req.db)
                 }
+                imageIndex += 1
             }
             try await group.waitForAll()
         }
@@ -111,7 +114,12 @@ struct ItemsController: RouteCollection {
             let itemID = try item.requireID().uuidString
             let storageFolder = "/app/Storage/Items/\(itemID)"
             let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
-            let fileName = "\(UUID()).jpg"
+
+            let existingImages = try await ItemImage.query(on: req.db)
+                .filter(\ItemImage.$item.$id == item.id!)
+                .all()
+            let nextImageIndex = existingImages.count + 1
+            let fileName = "\(nextImageIndex).jpg"
             let newImagePath = storageFolder + "/" + fileName
 
             req.logger.debug("Updating file at \(newImagePath)")
