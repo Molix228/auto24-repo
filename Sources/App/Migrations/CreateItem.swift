@@ -12,6 +12,7 @@ struct CreateItem: AsyncMigration {
     func prepare(on database: any FluentKit.Database) async throws {
         let schema = database.schema("items")
             .id()
+            .field("userId", .uuid, .required, .references("users", "id", onDelete: .cascade))
             .field("image", .string)
             .field("category", .string, .required)
             .field("bodytype", .string, .required)
