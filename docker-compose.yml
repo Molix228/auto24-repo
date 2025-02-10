@@ -22,7 +22,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h db"]
       interval: 5s
       timeout: 2s
       retries: 5
@@ -43,7 +43,7 @@ services:
         condition: service_healthy
     networks:
       - app_network
-    command: ["serve", "--env", "development", "--hostname", "0.0.0.0", "--port", "8080"]
+    command: ["/bin/sh", "-c", "if swift run migrate --check; then swift run migrate; fi && ./App serve --env production --hostname 0.0.0.0 --port 8080"]
     
   nginx:
     image: nginx:1.26.2
