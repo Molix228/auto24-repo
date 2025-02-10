@@ -137,8 +137,24 @@ struct ItemsController: RouteCollection {
         guard let item = try await Item.find(req.parameters.get("itemID"), on: req.db) else {
             throw Abort(.notFound)
         }
-        try await item.$images.query(on: req.db).delete()
+
+        let storageFolder = "/app/Storage/Items/\(try item.requireID())"
+
+        let images = try await item.$images.get(on: req.db)
+        
+        for image in images {
+            let filePath = image.path.replacingOccurrences(of: "https://auto24-api.com", with: "/app")
+            if FileManager.default.fileExists(atPath: filePath) {
+                try FileManager.default.removeItem(atPath: filePath)
+            }
+        }
+
+        if FileManager.default.fileExists(atPath: storageFolder) {
+            try FileManager.default.removeItem(atPath: storageFolder)
+        }
+
         try await item.delete(on: req.db)
+
         return .ok
     }
 

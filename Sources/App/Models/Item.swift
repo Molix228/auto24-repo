@@ -2,8 +2,8 @@ import Fluent
 import Vapor
 
 final class Item: @unchecked Sendable, Model, Content {
-    static let schema: String = "items" // Название таблицы в базе данных
-    // Определение полей сущности
+    static let schema: String = "items"
+    
     @ID var id: UUID?
     @Field(key: "category") var category: String
     @Field(key: "bodytype") var bodytype: String
@@ -22,12 +22,14 @@ final class Item: @unchecked Sendable, Model, Content {
     @Field(key: "drivetrain") var drivetrain: String
     @Field(key: "description") var description: String?
 
-    // Связь "один ко многим" для изображений
     @Children(for: \.$item) var images: [ItemImage]
+    
+    func willDelete(on database: Database) async throws {
+            try await self.$images.query(on: database).delete()
+        }
 
     init() {}
 
-    // Конструктор для инициализации всех полей модели
     init(id: UUID? = nil, category: String, bodytype: String, make: String, model: String, year: Int,
          initialReg: String? = nil, regNumber: String? = nil, vinNumber: String? = nil, price: Int,
          mileage: Int? = nil, color: String? = nil, power: Int, transmission: String,
