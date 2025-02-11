@@ -16,31 +16,64 @@ struct ItemsController: RouteCollection {
     }
 
     @Sendable func create(req: Request) async throws -> Item {
-            let formData = try req.content.decode(ItemFormData.self)
-            let user = try req.auth.require(User.self)
+        let formData = try req.content.decode(ItemFormData.self)
 
-            let item = Item(
-                userID: try user.requireID(),
-                category: formData.category,
-                bodytype: formData.bodytype,
-                make: formData.make,
-                model: formData.model,
-                year: formData.year,
-                initialReg: formData.initialReg,
-                regNumber: formData.regNumber,
-                vinNumber: formData.vinNumber,
-                price: formData.price,
-                mileage: formData.mileage,
-                color: formData.color,
-                power: formData.power,
-                transmission: formData.transmission,
-                fuel: formData.fuel,
-                drivetrain: formData.drivetrain,
-                description: formData.description
-            )
-            try await item.save(on: req.db)
-            return item
+        let user = try req.auth.require(User.self)
+
+        let item = Item(
+            userID: try user.requireID(),
+            category: formData.category,
+            bodytype: formData.bodytype,
+            make: formData.make,
+            model: formData.model,
+            year: formData.year,
+            initialReg: formData.initialReg,
+            regNumber: formData.regNumber,
+            vinNumber: formData.vinNumber,
+            price: formData.price,
+            mileage: formData.mileage,
+            color: formData.color,
+            power: formData.power,
+            transmission: formData.transmission,
+            fuel: formData.fuel,
+            drivetrain: formData.drivetrain,
+            description: formData.description
+        )
+        try await item.save(on: req.db)
+            
+        let itemID = try item.requireID().uuidString
+        let storageFolder = "/app/Storage/Items/\(itemID)"
+        let baseURL = "https://auto24-api.com/Storage/Items/\(itemID)/"
+
+        if !FileManager.default.fileExists(atPath: storageFolder) {
+            try FileManager.default.createDirectory(atPath: storageFolder, withIntermediateDirectories: true)
         }
+
+        var imageIndex = 1
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for imageData in formData.images {
+                let index = imageIndex
+                group.addTask {
+                    do {
+                        let fileName = "\(index).jpg"
+                        let fullPath = storageFolder + "/" + fileName
+                        try imageData.write(to: URL(fileURLWithPath: fullPath))
+
+                        let itemImage = ItemImage(itemID: try item.requireID(), path: baseURL + fileName)
+                        try await itemImage.save(on: req.db)
+                    } catch {
+                        req.logger.error("Ошибка сохранения файла: \(error.localizedDescription)")
+                        throw error
+                    }
+                }
+                imageIndex += 1
+            }
+            try await group.waitForAll()
+        }
+            
+        return item
+    }
 
     @Sendable func index(req: Request) async throws -> [Item] {
         try await Item.query(on: req.db).with(\.$images).all()
