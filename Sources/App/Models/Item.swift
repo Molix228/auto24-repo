@@ -6,8 +6,8 @@ final class Item: @unchecked Sendable, Model, Content {
 
     @ID var id: UUID?
     
-    @Parent(key: "user_id")
-    var user: User // ✅ Добавлена связь с пользователем
+    @Parent(key: "userId")
+    var user: User
 
     @Field(key: "category") var category: String
     @Field(key: "bodytype") var bodytype: String
@@ -30,7 +30,7 @@ final class Item: @unchecked Sendable, Model, Content {
 
     func willDelete(on database: Database) async throws {
         database.logger.info("Удаление изображений перед удалением объявления \(String(describing: self.id))")
-        try await self.$images.query(on: database).delete() // ✅ Теперь сначала удаляются изображения
+        try await self.$images.query(on: database).delete()
     }
 
     init() {}
