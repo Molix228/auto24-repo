@@ -5,6 +5,7 @@ struct ItemsController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         let items = routes.grouped("items")
         items.get(use: index)
+        items.get("search", use: search)
         items.group(":itemID") { item in
             item.get(use: show)
             item.put(use: update)
@@ -76,6 +77,58 @@ struct ItemsController: RouteCollection {
 
     @Sendable func index(req: Request) async throws -> [Item] {
         try await Item.query(on: req.db).with(\.$images).all()
+    }
+    
+    @Sendable func search(req: Request) async throws -> [ItemResponse] {
+        let query = try req.query.decode(SearchQuery.self)
+        
+        var itemsQuery = Item.query(on: req.db).with(\.$images)
+        
+        if let make = query.make {
+            itemsQuery = itemsQuery.filter(\.$make == make)
+        }
+        if let model = query.model {
+            itemsQuery = itemsQuery.filter(\.$model == model)
+        }
+        if let year = query.year {
+            itemsQuery = itemsQuery.filter(\.$year == year)
+        }
+        if let minPrice = query.minPrice {
+            itemsQuery = itemsQuery.filter(\.$price >= minPrice)
+        }
+        if let maxPrice = query.maxPrice {
+            itemsQuery = itemsQuery.filter(\.$price <= maxPrice)
+        }
+        if let minMileage = query.minMileage {
+            itemsQuery = itemsQuery.filter(\.$mileage >= minMileage)
+        }
+        if let maxMileage = query.maxMileage {
+            itemsQuery = itemsQuery.filter(\.$mileage <= maxMileage)
+        }
+        
+        let items = try await itemsQuery.all()
+        return items.map { item in
+            ItemResponse(
+                id: item.id!,
+                images: item.images.map { ImageResponse(id: $0.id, path: $0.path) },
+                model: item.model,
+                category: item.category,
+                regNumber: item.regNumber,
+                make: item.make,
+                vinNumber: item.vinNumber,
+                year: item.year,
+                price: item.price,
+                description: item.description,
+                color: item.color,
+                initialReg: item.initialReg,
+                mileage: item.mileage,
+                bodytype: item.bodytype,
+                power: item.power,
+                drivetrain: item.drivetrain,
+                fuel: item.fuel,
+                transmission: item.transmission
+            )
+        }
     }
 
     @Sendable func show(req: Request) async throws -> ItemResponse {
