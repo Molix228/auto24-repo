@@ -15,4 +15,6 @@ struct SearchQuery: Content {
     var maxPrice: Int?
     var minMileage: Int?
     var maxMileage: Int?
+    var perPage: Int?
+    var page: Int?
 }
