@@ -13,18 +13,29 @@ struct UsersController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         let users = routes.grouped("users")
         let authUsers = users.grouped(SessionAuthMiddleware())
+
         authUsers.get(use: index)
+        authUsers.get("me", use: me)
         authUsers.group(":userID") { user in
             user.get(use: show)
             user.put(use: update)
             user.delete(use: delete)
         }
+        
         users.post("login", use: login)
         users.post(use: create)
     }
-    // MARK: New user creating
+
+    // ✅ **Метод для получения текущего пользователя**
+    @Sendable func me(req: Request) async throws -> User.Public {
+        guard let user = req.auth.get(User.self) else {
+            throw Abort(.unauthorized, reason: "Not authenticated")
+        }
+        return user.convertToPublic()
+    }
+
+    // ✅ **Создание нового пользователя**
     @Sendable func create(req: Request) async throws -> User.Public {
-        // Декодируем данные из form-data
         let formData = try req.content.decode(UserFormData.self)
         let user = User(
             username: formData.username,
@@ -36,7 +47,8 @@ struct UsersController: RouteCollection {
         try await user.save(on: req.db)
         return user.convertToPublic()
     }
-    // MARK: Auth User
+
+    // ✅ **Аутентификация пользователя**
     @Sendable func login(req: Request) async throws -> Response {
         let loginData = try req.content.decode(LoginData.self)
 
@@ -47,36 +59,34 @@ struct UsersController: RouteCollection {
             throw Abort(.unauthorized)
         }
 
-        // Создание токена
         let payload = try Payload(user: user)
         let token = try req.jwt.sign(payload)
 
-        // Получаем userID
         let userID = try user.requireID().uuidString
 
         let response = Response(status: .ok)
         response.headers.replaceOrAdd(name: .setCookie, value: "userID=\(userID); Path=/; HttpOnly; Secure; SameSite=Strict")
         response.headers.contentType = .json
 
-        // **Теперь JSON-ответ содержит userID**
         try response.content.encode(["token": token, "userID": userID])
-
         return response
     }
-    // MARK: Get all users
+
+    // ✅ **Получение списка пользователей**
     @Sendable func index(req: Request) async throws -> [User.Public] {
         let users = try await User.query(on: req.db).all()
         return users.map { $0.convertToPublic() }
     }
 
-    // MARK: Get User by ID
+    // ✅ **Получение пользователя по ID**
     @Sendable func show(req: Request) async throws -> User.Public {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
         }
         return user.convertToPublic()
     }
-    // MARK: Update User data by ID
+
+    // ✅ **Обновление данных пользователя**
     @Sendable func update(req: Request) async throws -> User.Public {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
@@ -91,7 +101,8 @@ struct UsersController: RouteCollection {
         try await user.save(on: req.db)
         return user.convertToPublic()
     }
-    // MARK: Delete user by ID
+
+    // ✅ **Удаление пользователя**
     @Sendable func delete(req: Request) async throws -> HTTPStatus {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
@@ -100,7 +111,6 @@ struct UsersController: RouteCollection {
         return .ok
     }
 }
-
 struct UserFormData: Content {
     var username: String
     var email: String
