@@ -37,7 +37,7 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
     // MARK: Auth User
-    @Sendable func login(req: Request) async throws -> TokenResponse {
+    @Sendable func login(req: Request) async throws -> Response {
         let loginData = try req.content.decode(LoginData.self)
 
         guard let user = try await User.query(on: req.db)
@@ -51,10 +51,16 @@ struct UsersController: RouteCollection {
         let payload = try Payload(user: user)
         let token = try req.jwt.sign(payload)
 
-        // Сохранение в сессии
-        req.session.data["userID"] = user.id?.uuidString
+        // Сохранение userID в cookie
+        let userID = try user.requireID().uuidString
+        let cookie = HTTPCookies.Value(string: userID, expires: Date().addingTimeInterval(3600))
 
-        return TokenResponse(token: token)
+        let response = Response(status: .ok)
+        response.headers.replaceOrAdd(name: .setCookie, value: "userID=\(userID); Path=/; HttpOnly; Secure; SameSite=Strict")
+        response.headers.contentType = .json
+        try response.content.encode(TokenResponse(token: token))
+
+        return response
     }
     // MARK: Get all users
     @Sendable func index(req: Request) async throws -> [User.Public] {
