@@ -51,14 +51,15 @@ struct UsersController: RouteCollection {
         let payload = try Payload(user: user)
         let token = try req.jwt.sign(payload)
 
-        // Сохранение userID в cookie
+        // Получаем userID
         let userID = try user.requireID().uuidString
-        let cookie = HTTPCookies.Value(string: userID, expires: Date().addingTimeInterval(3600))
 
         let response = Response(status: .ok)
         response.headers.replaceOrAdd(name: .setCookie, value: "userID=\(userID); Path=/; HttpOnly; Secure; SameSite=Strict")
         response.headers.contentType = .json
-        try response.content.encode(TokenResponse(token: token))
+
+        // **Теперь JSON-ответ содержит userID**
+        try response.content.encode(["token": token, "userID": userID])
 
         return response
     }
