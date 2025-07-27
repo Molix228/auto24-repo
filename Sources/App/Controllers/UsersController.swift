@@ -26,7 +26,7 @@ struct UsersController: RouteCollection {
         users.post(use: create)
     }
 
-    // ✅ **Метод для получения текущего пользователя**
+    // Метод для получения текущего пользователя
     @Sendable func me(req: Request) async throws -> User.Public {
         guard let user = req.auth.get(User.self) else {
             throw Abort(.unauthorized, reason: "Not authenticated")
@@ -34,7 +34,7 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
 
-    // ✅ **Создание нового пользователя**
+    // Создание нового пользователя
     @Sendable func create(req: Request) async throws -> User.Public {
         let formData = try req.content.decode(UserFormData.self)
         let user = User(
@@ -48,7 +48,7 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
 
-    // ✅ **Аутентификация пользователя**
+    // Аутентификация пользователя
     @Sendable func login(req: Request) async throws -> Response {
         let loginData = try req.content.decode(LoginData.self)
 
@@ -72,13 +72,13 @@ struct UsersController: RouteCollection {
         return response
     }
 
-    // ✅ **Получение списка пользователей**
+    // Получение списка пользователей
     @Sendable func index(req: Request) async throws -> [User.Public] {
         let users = try await User.query(on: req.db).all()
         return users.map { $0.convertToPublic() }
     }
 
-    // ✅ **Получение пользователя по ID**
+    // Получение пользователя по ID
     @Sendable func show(req: Request) async throws -> User.Public {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
@@ -86,7 +86,7 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
 
-    // ✅ **Обновление данных пользователя**
+    // Обновление данных пользователя
     @Sendable func update(req: Request) async throws -> User.Public {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
@@ -102,7 +102,7 @@ struct UsersController: RouteCollection {
         return user.convertToPublic()
     }
 
-    // ✅ **Удаление пользователя**
+    // Удаление пользователя**
     @Sendable func delete(req: Request) async throws -> HTTPStatus {
         guard let user = try await User.find(req.parameters.get("userID"), on: req.db) else {
             throw Abort(.notFound)
